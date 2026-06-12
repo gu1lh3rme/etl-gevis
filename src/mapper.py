@@ -9,6 +9,8 @@ Futuras melhorias:
 - Validar os valores antes da inserção (ex.: formato de placa, valor monetário)
 """
 
+import re
+
 import pandas as pd
 
 from config import COLUMN_MAPPING, FIXED_VALUES
@@ -32,9 +34,8 @@ def map_gevis_to_vistorias(df_gevis: pd.DataFrame) -> pd.DataFrame:
     Raises:
         KeyError: Se alguma coluna de origem não existir no arquivo do Gevis.
     """
-    _validate_source_columns(df_gevis)
-
-    df_mapped = df_gevis.rename(columns=COLUMN_MAPPING)
+    resolved_mapping = _resolve_source_mapping(df_gevis)
+    df_mapped = df_gevis.rename(columns=resolved_mapping)
 
     # Mantém apenas as colunas de destino mapeadas
     target_columns = list(COLUMN_MAPPING.values())
@@ -47,20 +48,52 @@ def map_gevis_to_vistorias(df_gevis: pd.DataFrame) -> pd.DataFrame:
     return df_result
 
 
-def _validate_source_columns(df: pd.DataFrame) -> None:
+def _resolve_source_mapping(df: pd.DataFrame) -> dict[str, str]:
     """
-    Verifica se todas as colunas de origem definidas em COLUMN_MAPPING
-    existem no DataFrame fornecido.
+    Resolve as colunas de origem do Gevis para o mapeamento de destino.
+
+    A resolução usa comparação normalizada (sem diferença de caixa,
+    espaços extras e pontuação simples) para suportar pequenas variações
+    no cabeçalho exportado.
 
     Args:
         df: DataFrame a ser validado.
 
+    Returns:
+        Dicionário no formato {coluna_real_no_df: coluna_destino}.
+
     Raises:
-        KeyError: Se uma ou mais colunas estiverem ausentes.
+        KeyError: Se uma ou mais colunas esperadas estiverem ausentes.
     """
-    missing = [col for col in COLUMN_MAPPING if col not in df.columns]
+    normalized_to_real: dict[str, str] = {
+        _normalize_column_name(col): col for col in df.columns
+    }
+
+    missing: list[str] = []
+    resolved: dict[str, str] = {}
+
+    for source_col, target_col in COLUMN_MAPPING.items():
+        normalized_source = _normalize_column_name(source_col)
+        real_col = normalized_to_real.get(normalized_source)
+
+        if real_col is None:
+            missing.append(source_col)
+            continue
+
+        resolved[real_col] = target_col
+
     if missing:
         raise KeyError(
             f"Coluna(s) não encontrada(s) no arquivo Gevis: {missing}\n"
             "Verifique o dicionário COLUMN_MAPPING em src/config.py."
         )
+
+    return resolved
+
+
+def _normalize_column_name(name: str) -> str:
+    """Normaliza nome de coluna para comparação resiliente."""
+    text = str(name).strip().lower()
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"[^\w ]", "", text)
+    return text

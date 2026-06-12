@@ -24,7 +24,7 @@ load_dotenv()
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
 
 GEVIS_INPUT_PATH: Path = Path(
-    os.getenv("GEVIS_INPUT_PATH", str(BASE_DIR / "data" / "input" / "gevis.xlsx"))
+    os.getenv("GEVIS_INPUT_PATH", str(BASE_DIR / "data" / "input" / "Vistorias - Gevis.xlsx"))
 )
 
 VISTORIAS_TEMPLATE_PATH: Path = Path(
